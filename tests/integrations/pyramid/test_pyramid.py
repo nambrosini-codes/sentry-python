@@ -1,8 +1,6 @@
 import json
 import logging
-import pkg_resources
 import pytest
-
 from io import BytesIO
 
 import pyramid.testing
@@ -16,9 +14,18 @@ from sentry_sdk.integrations.pyramid import PyramidIntegration
 from werkzeug.test import Client
 
 
-PYRAMID_VERSION = tuple(
-    map(int, pkg_resources.get_distribution("pyramid").version.split("."))
-)
+try:
+    from importlib.metadata import version
+
+    PYRAMID_VERSION = tuple(map(int, version("pyramid").split(".")))
+
+except ImportError:
+    # < py3.8
+    import pkg_resources
+
+    PYRAMID_VERSION = tuple(
+        map(int, pkg_resources.get_distribution("pyramid").version.split("."))
+    )
 
 
 def hi(request):

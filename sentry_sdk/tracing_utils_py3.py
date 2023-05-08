@@ -12,61 +12,78 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-def start_child_span_decorator(func):
-    # type: (Any) -> Any
+def start_child_span_decorator_with_name(name=None):
+    """Decorator to add child spans for functions with an optional custom name.
+
+    @start_child_span_decorator_with_name
+    def func():
+        pass
+
+    or
+
+    @start_child_span_decorator_with_name("My Name")
+    def func():
+        pass
     """
-    Decorator to add child spans for functions.
 
-    This is the Python 3 compatible version of the decorator.
-    For Python 2 there is duplicated code here: ``sentry_sdk.tracing_utils_python2.start_child_span_decorator()``.
+    def start_child_span_decorator(func):
+        # type: (Any) -> Any
+        """
+        Decorator to add child spans for functions.
 
-    See also ``sentry_sdk.tracing.trace()``.
-    """
+        This is the Python 3 compatible version of the decorator.
+        For Python 2 there is duplicated code here: ``sentry_sdk.tracing_utils_python2.start_child_span_decorator()``.
 
-    # Asynchronous case
-    if inspect.iscoroutinefunction(func):
+        See also ``sentry_sdk.tracing.trace()``.
+        """
+        span_name = name or qualname_from_function(func)
 
-        @wraps(func)
-        async def func_with_tracing(*args, **kwargs):
-            # type: (*Any, **Any) -> Any
+        # Asynchronous case
+        if inspect.iscoroutinefunction(func):
 
-            span = get_current_span(sentry_sdk.Hub.current)
+            @wraps(func)
+            async def func_with_tracing(*args, **kwargs):
+                # type: (*Any, **Any) -> Any
 
-            if span is None:
-                logger.warning(
-                    "Can not create a child span for %s. "
-                    "Please start a Sentry transaction before calling this function.",
-                    qualname_from_function(func),
-                )
-                return await func(*args, **kwargs)
+                span = get_current_span(sentry_sdk.Hub.current)
 
-            with span.start_child(
-                op=OP.FUNCTION,
-                description=qualname_from_function(func),
-            ):
-                return await func(*args, **kwargs)
+                if span is None:
+                    logger.warning(
+                        "Can not create a child span for %s. "
+                        "Please start a Sentry transaction before calling this function.",
+                        qualname_from_function(func),
+                    )
+                    return await func(*args, **kwargs)
 
-    # Synchronous case
-    else:
+                with span.start_child(
+                    op=OP.FUNCTION,
+                    description=span_name,
+                ):
+                    return await func(*args, **kwargs)
 
-        @wraps(func)
-        def func_with_tracing(*args, **kwargs):
-            # type: (*Any, **Any) -> Any
+        # Synchronous case
+        else:
 
-            span = get_current_span(sentry_sdk.Hub.current)
+            @wraps(func)
+            def func_with_tracing(*args, **kwargs):
+                # type: (*Any, **Any) -> Any
 
-            if span is None:
-                logger.warning(
-                    "Can not create a child span for %s. "
-                    "Please start a Sentry transaction before calling this function.",
-                    qualname_from_function(func),
-                )
-                return func(*args, **kwargs)
+                span = get_current_span(sentry_sdk.Hub.current)
 
-            with span.start_child(
-                op=OP.FUNCTION,
-                description=qualname_from_function(func),
-            ):
-                return func(*args, **kwargs)
+                if span is None:
+                    logger.warning(
+                        "Can not create a child span for %s. "
+                        "Please start a Sentry transaction before calling this function.",
+                        qualname_from_function(func),
+                    )
+                    return func(*args, **kwargs)
 
-    return func_with_tracing
+                with span.start_child(
+                    op=OP.FUNCTION,
+                    description=span_name,
+                ):
+                    return func(*args, **kwargs)
+
+        return func_with_tracing
+
+    return start_child_span_decorator
